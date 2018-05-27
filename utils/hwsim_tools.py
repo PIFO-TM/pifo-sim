@@ -95,21 +95,22 @@ class PktGenerator(HW_sim_object):
             self.pkt_cnt += 1
 
 class PktSender(HW_sim_object):
-    def __init__(self, env, period, pkt_out_pipe, done_pipe, pkts, ranks):
+    def __init__(self, env, period, pkt_out_pipe, done_pipe, pkts, q_ids):
         super(PktSender, self).__init__(env, period)
         self.pkt_out_pipe = pkt_out_pipe
         self.done_pipe = done_pipe
         self.pkts = []
-        self.run(pkts, ranks)
+        self.run(pkts, q_ids)
 
-    def run(self, pkts, ranks):
-        self.env.process(self.send_pkts(pkts, ranks))
+    def run(self, pkts, q_ids):
+        self.env.process(self.send_pkts(pkts, q_ids))
 
-    def send_pkts(self, pkts, ranks):
-        for pkt, rank in zip(pkts, ranks):
-            self.pkt_out_pipe.put((rank, pkt))
-            self.pkts.append((self.env.now, rank, pkt))
+    def send_pkts(self, pkts, q_ids):
+        for pkt, q_id in zip(pkts, q_ids):
+            self.pkt_out_pipe.put((q_id, pkt))
+            self.pkts.append((self.env.now, q_id, pkt))
             yield self.done_pipe.get()
+            yield self.wait_clock()
 
 
 class PktReceiver(HW_sim_object):
