@@ -64,8 +64,8 @@ class PIFO(HW_sim_object):
             (q_id, pkt) = yield self.w_in_pipe.get()
             if q_id not in self.queue_sizes.keys():
                 q_id = 0
-            # write pkt and metadata into rank computation pipe
-            if self.max_queue_size is None or self.queue_sizes[q_id] < self.max_queue_size:
+            # write pkt and metadata into rank computation pipe only if queue is not full
+            if self.max_queue_size is None or self.queue_sizes[q_id] + len(pkt) < self.max_queue_size:
                 self.queue_sizes[q_id] += len(pkt)
                 self.rank_w_in_pipe.put((q_id, pkt))
                 yield self.rank_w_out_pipe.get() # wait for rank pipe ACK
