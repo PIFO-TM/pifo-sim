@@ -4,7 +4,7 @@ from scapy.all import *
 import simpy
 from utils.hwsim_tools import *
 
-TARGET_RATE = 1.5 # Gbps
+TARGET_RATE = 1.0 # Gbps
 MAX_BURST = 1500 # bytes
 #MAX_BURST = 100 # bytes
 
