@@ -51,28 +51,30 @@ class flow_stats(object):
         dictionary mapping flowIDs to the flow's measured rate
         """
         flow_rates = {}
+        min_time = min(flow_pkts.items(), key=lambda x: x[1][0][0])[1][0][0] - 1
+        max_time = max(flow_pkts.items(), key=lambda x: x[1][-1][0])[1][-1][0] + 1
         for flowID, pkts in flow_pkts.items():
-            prev_time = pkts[0][0]
+            min_range = 0
+            max_range = self.avg_interval
             byte_cnt = 0
             flow_rates[flowID] = []
-            for (cur_time, pkt) in pkts:
-                if cur_time <= prev_time + self.avg_interval:
-                    # increment
+            for (timestamp, pkt) in pkts:
+                if timestamp >= min_range and timestamp < max_range:
                     byte_cnt += len(pkt)
                 else:
-                    # insert 0 samples if needed
-                    for t in range(prev_time, cur_time, self.avg_interval)[0:-2]:
-                        avg_time = (t + self.avg_interval/2.0)
-                        flow_rates[flowID].append((avg_time, 0))
-                        prev_time = t + self.avg_interval
-                    # update
-                    interval = cur_time - prev_time # ns
-                    rate = (byte_cnt*8.0)/float(interval)  # Gbps
-                    avg_time = (cur_time + prev_time)/2.0
+                    avg_time = min_range + self.avg_interval / 2
+                    rate = (byte_cnt*8.0)/float(self.avg_interval)
                     flow_rates[flowID].append((avg_time, rate))
-                    # reset
-                    prev_time = cur_time
-                    byte_cnt = 0
+
+                    min_range += self.avg_interval
+                    max_range += self.avg_interval
+                    while not (timestamp >= min_range and timestamp < max_range):
+                        flow_rates[flowID].append((min_range + self.avg_interval / 2, 0))
+
+                        min_range += self.avg_interval
+                        max_range += self.avg_interval
+                    byte_cnt = len(pkt)
+
         return flow_rates
 
 

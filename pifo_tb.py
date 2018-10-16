@@ -11,10 +11,10 @@ import matplotlib
 import matplotlib.pyplot as plt
 import argparse
 
-AVG_INTERVAL = 3000
+AVG_INTERVAL = 10000
 
 BUF_SIZE   = None #2**17 # bytes
-NUM_QUEUES = 1
+NUM_QUEUES = 2
 
 """
 Testbench to test rate limiting of the PIFO model.
@@ -71,6 +71,7 @@ def plot_stats(pifo, input_pkts, output_pkts, egress_link_rate):
     print 'input_pkts:  (start, end) = ({} ns, {} ns)'.format(input_pkts[0][0], input_pkts[-1][0])
     print 'output_pkts: (start, end) = ({} ns, {} ns)'.format(output_pkts[0][0], output_pkts[-1][0])
     flowID_tuple = ((IP, 'sport'),)
+#    flowID_tuple = ((IP, 'dport'),)
     input_stats  = flow_stats(flowID_tuple, input_pkts, avg_interval=AVG_INTERVAL)
     output_stats = flow_stats(flowID_tuple, output_pkts, avg_interval=AVG_INTERVAL)
     # create plots

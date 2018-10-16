@@ -43,15 +43,16 @@ def gen_exp1_data():
     """
     flow1_pkt = pad_pkt(Ether(src=MAC1, dst=MAC2) / IP(src=IP1, dst=IP2) / TCP(sport=1), 100)
     flow2_pkt = pad_pkt(Ether(src=MAC3, dst=MAC4) / IP(src=IP3, dst=IP4) / TCP(sport=2), 1500)
-    pattern = [flow2_pkt] + [flow1_pkt]*5
-    pkts = pattern*(NUM_PKTS/len(pattern))
+    pkt_pattern = [flow2_pkt] + [flow1_pkt]*5
+    qid_pattern = [1] + [0]*5
+    pkts = pkt_pattern*(NUM_PKTS/len(pkt_pattern))
+    q_ids = qid_pattern*(NUM_PKTS/len(qid_pattern))
     wrpcap('exp1_pkts.pcap', pkts)
-    q_ids = [0]*len(pkts)
     write_q_ids(q_ids, 'exp1_q_ids.txt')
 
 def main():
-    gen_exp0_data()
-#    gen_exp1_data()
+#    gen_exp0_data()
+    gen_exp1_data()
 
 if __name__ == '__main__':
     main()
