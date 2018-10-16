@@ -95,10 +95,11 @@ class PktGenerator(HW_sim_object):
             self.pkt_cnt += 1
 
 class PktSender(HW_sim_object):
-    def __init__(self, env, period, pkt_out_pipe, done_pipe, pkts, q_ids):
+    def __init__(self, env, period, pkt_out_pipe, done_pipe, pkts, q_ids, rate=None):
         super(PktSender, self).__init__(env, period)
         self.pkt_out_pipe = pkt_out_pipe
         self.done_pipe = done_pipe
+        self.rate = rate
         self.pkts = []
         self.run(pkts, q_ids)
 
@@ -109,12 +110,16 @@ class PktSender(HW_sim_object):
         for pkt, q_id in zip(pkts, q_ids):
             self.pkt_out_pipe.put((q_id, pkt))
             self.pkts.append((self.env.now, q_id, pkt))
+            if self.rate is not None:
+                pkt_time = len(pkt)*8.0/self.rate # ns
+                cycle_delay = int(pkt_time/NSEC_PER_CYCLE + 0.5)
+                for i in range(cycle_delay-2):
+                    yield self.wait_clock()
             yield self.done_pipe.get()
-            yield self.wait_clock()
 
 
 class PktReceiver(HW_sim_object):
-    def __init__(self, env, period, pkt_in_pipe, ready_pipe, rate):
+    def __init__(self, env, period, pkt_in_pipe, ready_pipe, rate=None):
         super(PktReceiver, self).__init__(env, period)
         self.pkt_in_pipe = pkt_in_pipe
         self.ready_pipe = ready_pipe
@@ -130,11 +135,12 @@ class PktReceiver(HW_sim_object):
         while not self.sim_done:
             self.ready_pipe.put(1)
             (rank, pkt) = yield self.pkt_in_pipe.get()
-            pkt_time = len(pkt)*8/self.rate # ns
-            cycle_delay = int(pkt_time/NSEC_PER_CYCLE + 0.5)
-            for i in range(cycle_delay-2):
-                yield self.wait_clock()
             self.pkts.append((self.env.now, rank, pkt))
+            if self.rate is not None:
+                pkt_time = len(pkt)*8.0/self.rate # ns
+                cycle_delay = int(pkt_time/NSEC_PER_CYCLE + 0.5)
+                for i in range(cycle_delay-2):
+                    yield self.wait_clock()
 
 
 class Arbiter(HW_sim_object):
