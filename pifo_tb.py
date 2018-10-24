@@ -3,15 +3,16 @@
 import simpy
 from utils.hwsim_tools import *
 from pifo_ingressRL import PIFO_ingressRL
-from rank_pipes.strict import StrictPipe
 from rank_pipes.strict_ingressRL import StrictIngressRLPipe
+from pifo_relativeTS import PIFO_relativeTS
+from rank_pipes.strict_relativeTS import StrictRelativeTSPipe
 
 from utils.stats import flow_stats
 import matplotlib
 import matplotlib.pyplot as plt
 import argparse
 
-AVG_INTERVAL = 10000
+AVG_INTERVAL = 10000 # ns
 
 BUF_SIZE   = None #2**17 # bytes
 NUM_QUEUES = 2
@@ -23,7 +24,7 @@ rate limiting.
 """
 
 class PIFO_tb(HW_sim_object):
-    def __init__(self, env, period, pkts, q_ids):
+    def __init__(self, env, period, pkts, q_ids, rl_type):
         super(PIFO_tb, self).__init__(env, period)
 
         self.pifo_r_in_pipe = simpy.Store(env)
@@ -42,11 +43,17 @@ class PIFO_tb(HW_sim_object):
         # is responsible for rate limiting
         self.egress_link_rate = None # Gbps
 
-        # TODO: Use the appropriate rank computation
-        self.rank_pipe = StrictIngressRLPipe(env, period, self.rank_r_in_pipe, self.rank_r_out_pipe, self.rank_w_in_pipe, self.rank_w_out_pipe)
+        if rl_type == 'ingress':
+            self.rank_pipe = StrictIngressRLPipe(env, period, self.rank_r_in_pipe, self.rank_r_out_pipe, self.rank_w_in_pipe, self.rank_w_out_pipe)
+            self.pifo = PIFO_ingressRL(env, period, self.pifo_r_in_pipe, self.pifo_r_out_pipe, self.pifo_w_in_pipe, self.pifo_w_out_pipe, self.rank_w_in_pipe, self.rank_w_out_pipe, self.rank_r_in_pipe, self.rank_r_out_pipe, buf_size=BUF_SIZE, num_queues=NUM_QUEUES)
+        elif rl_type == 'relative':
+            self.rank_pipe = StrictRelativeTSPipe(env, period, self.rank_r_in_pipe, self.rank_r_out_pipe, self.rank_w_in_pipe, self.rank_w_out_pipe)
+            self.pifo = PIFO_relativeTS(env, period, self.pifo_r_in_pipe, self.pifo_r_out_pipe, self.pifo_w_in_pipe, self.pifo_w_out_pipe, self.rank_w_in_pipe, self.rank_w_out_pipe, self.rank_r_in_pipe, self.rank_r_out_pipe, buf_size=BUF_SIZE, num_queues=NUM_QUEUES)
+        else:
+            print >> sys.stderr, 'ERROR: unknown rl_type {}'.format(rl_type)
+            sys.exit(1)
 
         self.sender = PktSender(env, period, self.pifo_w_in_pipe, self.pifo_w_out_pipe, pkts, q_ids, self.ingress_link_rate)
-        self.pifo = PIFO_ingressRL(env, period, self.pifo_r_in_pipe, self.pifo_r_out_pipe, self.pifo_w_in_pipe, self.pifo_w_out_pipe, self.rank_w_in_pipe, self.rank_w_out_pipe, self.rank_r_in_pipe, self.rank_r_out_pipe, buf_size=BUF_SIZE, num_queues=NUM_QUEUES)
         self.receiver = PktReceiver(env, period, self.pifo_r_out_pipe, self.pifo_r_in_pipe, self.egress_link_rate)
 
         self.env.process(self.wait_complete(len(pkts))) 
@@ -109,12 +116,13 @@ def read_q_id_file(filename):
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument('rl_type', type=str, help="which experiment to run either: ingress or relative")
     parser.add_argument('pkts', type=str, help="pcap file that contains the packets to be applied in the simulation")
     parser.add_argument('qids', type=str, help="text file that contains the q_id that each packet should enter into")
     args = parser.parse_args()
 
     try:
-        pkts = rdpcap(args.pkts)
+        pkts = rdpcap(args.pkts) #[0:500]
     except IOError as e:
         print >> sys.stderr, "ERROR: failed to read pcap file: {}".format(args.pkts)
         sys.exit(1)
@@ -123,7 +131,7 @@ def main():
 
     env = simpy.Environment()
     period = 1
-    tb = PIFO_tb(env, period, pkts, q_ids)
+    tb = PIFO_tb(env, period, pkts, q_ids, args.rl_type)
     env.run()
 
     print 'len(tb.sender.pkts) = {}'.format(len(tb.sender.pkts))

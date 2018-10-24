@@ -29,7 +29,7 @@ def gen_exp0_data():
     Experiment 0:
         - 1000 100B packets
     """
-    flow1_pkt = pad_pkt(Ether(src=MAC1, dst=MAC2) / IP(src=IP1, dst=IP2) / TCP(sport=1), 200)
+    flow1_pkt = pad_pkt(Ether(src=MAC1, dst=MAC2) / IP(src=IP1, dst=IP2) / TCP(sport=1), 100)
     pkts = [flow1_pkt]*1000
     wrpcap('exp0_pkts.pcap', pkts)
     q_ids = [0]*len(pkts)
